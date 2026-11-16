@@ -1,10 +1,11 @@
 param(
     [string]$InstallDirectory = 'C:\Program Files (Portable)\Copy GIF',
-    [ValidateSet('Edge', 'Chrome', 'Both')][string]$Browser = 'Edge'
+    [ValidateSet('All', 'Edge', 'Chrome', 'Chromium', 'Brave', 'Vivaldi', 'Opera', 'Both')][string]$Browser = 'All'
 )
 $ErrorActionPreference = 'Stop'
 $sourceDirectory = $PSScriptRoot
 $executable = Join-Path $sourceDirectory 'native-host\windows\publish\copy-gif-host.exe'
+if (!(Test-Path -LiteralPath $executable)) { $executable = Join-Path $sourceDirectory 'copy-gif-host.exe' }
 if (!(Test-Path -LiteralPath $executable)) {
     throw 'Build first: dotnet publish native-host\windows\CopyGif.Host.csproj -c Release -o native-host\windows\publish'
 }
@@ -39,10 +40,11 @@ $hostManifest = [ordered]@{
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [IO.File]::WriteAllText($hostManifestPath, ($hostManifest | ConvertTo-Json -Depth 5), $utf8NoBom)
 $registrations = @()
-if ($Browser -in @('Edge', 'Both')) { $registrations += 'Software\Microsoft\Edge\NativeMessagingHosts\com.copygif.host' }
+if ($Browser -in @('All', 'Edge', 'Both')) { $registrations += 'Software\Microsoft\Edge\NativeMessagingHosts\com.copygif.host' }
 # Edge supports the Chrome registry location as a fallback. Register both for
 # Edge: some existing Edge profiles only discover this host via that location.
-if ($Browser -in @('Edge', 'Chrome', 'Both')) { $registrations += 'Software\Google\Chrome\NativeMessagingHosts\com.copygif.host' }
+if ($Browser -in @('All', 'Edge', 'Chrome', 'Chromium', 'Brave', 'Vivaldi', 'Opera', 'Both')) { $registrations += 'Software\Google\Chrome\NativeMessagingHosts\com.copygif.host' }
+if ($Browser -in @('All', 'Chromium')) { $registrations += 'Software\Chromium\NativeMessagingHosts\com.copygif.host' }
 $backupPath = Join-Path $InstallDirectory 'previous-registration.json'
 $backups = @()
 if (Test-Path -LiteralPath $backupPath) {

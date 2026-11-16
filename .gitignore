@@ -56,6 +56,8 @@ web-store-package.zip
 **/bin/
 **/obj/
 /native-host/windows/publish/
+/native-host/unix/publish/
+/release/
 /windows-package/
 /tests/__pycache__/
 /tests/edge-probe/

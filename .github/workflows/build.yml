@@ -1,0 +1,117 @@
+name: Build and test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            rid: osx-arm64
+          - runner: macos-15-intel
+            rid: osx-x64
+          - runner: ubuntu-24.04
+            rid: linux-x64
+          - runner: ubuntu-24.04-arm
+            rid: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow
+      - run: node tests/extension.test.cjs
+      - name: Build packages
+        run: |
+          bash installers/unix/package.sh '${{ matrix.rid }}' release
+          bash installers/unix/package.sh '${{ matrix.rid }}' release true
+          mkdir -p release/test
+          tar -xzf 'release/copy-gif-${{ matrix.rid }}.tar.gz' -C release/test
+      - name: Install dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xclip wl-clipboard xvfb sway
+      - name: macOS clipboard
+        if: runner.os == 'macOS'
+        run: python tests/test_unix_host.py release/test/copy-gif-host
+      - name: X11 clipboard
+        if: runner.os == 'Linux'
+        run: |
+          Xvfb :99 -screen 0 1024x768x24 > /tmp/copy-gif-xvfb.log 2>&1 &
+          export DISPLAY=:99
+          for attempt in {1..30}; do xdpyinfo >/dev/null 2>&1 && break; sleep 1; done
+          python tests/test_unix_host.py release/test/copy-gif-host
+      - name: Wayland clipboard
+        if: runner.os == 'Linux'
+        run: |
+          export XDG_RUNTIME_DIR=$(mktemp -d)
+          chmod 700 "$XDG_RUNTIME_DIR"
+          export WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman
+          printf 'output * mode 1024x768\n' > "$XDG_RUNTIME_DIR/sway.conf"
+          sway --unsupported-gpu -c "$XDG_RUNTIME_DIR/sway.conf" > /tmp/copy-gif-sway.log 2>&1 &
+          for attempt in {1..30}; do
+            SOCKET=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' | head -1)
+            [ -n "$SOCKET" ] && break
+            sleep 1
+          done
+          test -n "$SOCKET"
+          export WAYLAND_DISPLAY=$(basename "$SOCKET")
+          unset DISPLAY
+          python tests/test_unix_host.py release/test/copy-gif-host
+      - name: Installer
+        run: python tests/test_unix_install.py 'release/copy-gif-${{ matrix.rid }}.tar.gz'
+      - name: Framework-dependent package
+        run: |
+          mkdir -p release/framework
+          tar -xzf 'release/copy-gif-${{ matrix.rid }}-framework.tar.gz' -C release/framework
+          mkdir -p release/framework/runtime
+          ln -s "$(command -v dotnet)" release/framework/runtime/dotnet
+          release/framework/copy-gif-host --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: copy-gif-${{ matrix.rid }}
+          path: release/*.tar.gz
+  windows:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow
+      - run: node tests/extension.test.cjs
+      - run: dotnet publish native-host/windows/CopyGif.Host.csproj -c Release -o native-host/windows/publish
+      - run: python tests/test_native_host.py
+      - name: Installer and package
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP 'Copy GIF'
+          .\install-windows.ps1 -InstallDirectory $target
+          .\install-windows.ps1 -InstallDirectory $target
+          $package = 'release\package'
+          New-Item -ItemType Directory -Path $package -Force | Out-Null
+          Copy-Item native-host/windows/publish/copy-gif-host.exe $package
+          Copy-Item manifest.json,background.js,content.js,diagnostics.html,diagnostics.js,install-windows.ps1,uninstall-windows.ps1,WINDOWS.md,README.md $package
+          Copy-Item icons $package -Recurse
+          Compress-Archive -Path "$package\*" -DestinationPath release/copy-gif-win-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: copy-gif-win-x64
+          path: release/*.zip

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Copy GIF",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Copy animated GIFs to clipboard with a right-click context menu option",
   "permissions": [
     "contextMenus",

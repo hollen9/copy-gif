@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+INSTALL_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -x "$INSTALL_DIR/host/copy-gif-host" ]; then
+    exec "$INSTALL_DIR/host/copy-gif-host" "$@"
+fi
+for DOTNET in "$INSTALL_DIR/runtime/dotnet" "$HOME/.dotnet/dotnet" /usr/local/share/dotnet/dotnet /usr/share/dotnet/dotnet; do
+    if [ -x "$DOTNET" ] && "$DOTNET" --list-runtimes | grep -q '^Microsoft.NETCore.App 10\.'; then
+        exec "$DOTNET" "$INSTALL_DIR/host/copy-gif-host.dll" "$@"
+    fi
+done
+if command -v dotnet >/dev/null 2>&1 && dotnet --list-runtimes | grep -q '^Microsoft.NETCore.App 10\.'; then
+    exec dotnet "$INSTALL_DIR/host/copy-gif-host.dll" "$@"
+fi
+echo 'Copy GIF requires .NET Runtime 10. Run install.sh --install-runtime or install .NET 10 from https://dotnet.microsoft.com/download/dotnet/10.0' >&2
+exit 1

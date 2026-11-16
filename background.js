@@ -104,5 +104,5 @@ async function report(tabId, frameId, success, message) {
 chrome.action.onClicked.addListener(async (tab) => {
   const response = await nativeMessage({ action: 'ping' });
   if (tab.id != null) await report(tab.id, 0, response.success,
-    response.success ? 'Windows native host connected. Right-click a GIF and select Copy GIF.' : response.error);
+    response.success ? 'Native host connected. Right-click a GIF and select Copy GIF.' : response.error);
 });
