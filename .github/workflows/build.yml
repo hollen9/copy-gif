@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
+          - runner: macos-26
             rid: osx-arm64
           - runner: macos-15-intel
             rid: osx-x64
@@ -81,6 +81,8 @@ jobs:
             echo "tester ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/tester
             su - tester -c "bash /repo/install.sh --package /repo/release/copy-gif-linux-x64.tar.gz --install-dir /home/tester/copy-gif --browser all"
             su - tester -c "xvfb-run -a python3 /repo/tests/test_unix_host.py /home/tester/copy-gif/copy-gif-host"
+            su - tester -c "bash /repo/install.sh --package /repo/release/copy-gif-linux-x64-framework.tar.gz --install-dir /home/tester/copy-gif --install-runtime"
+            su - tester -c "xvfb-run -a python3 /repo/tests/test_unix_host.py /home/tester/copy-gif/copy-gif-host"
           '
       - name: Framework-dependent package
         run: |
@@ -116,6 +118,11 @@ jobs:
           $target = Join-Path $env:RUNNER_TEMP 'Copy GIF'
           .\install-windows.ps1 -InstallDirectory $target
           .\install-windows.ps1 -InstallDirectory $target
+          foreach ($browser in @('Google\Chrome','Microsoft\Edge','Chromium','BraveSoftware\Brave-Browser','Vivaldi')) {
+            $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Software\$browser\NativeMessagingHosts\com.copygif.host")
+            if (!$key -or $key.GetValue('') -ne (Join-Path $target 'com.copygif.host.json')) { throw "Missing registration: $browser" }
+            $key.Dispose()
+          }
           $package = 'release\package'
           New-Item -ItemType Directory -Path $package -Force | Out-Null
           Copy-Item native-host/windows/publish/copy-gif-host.exe $package

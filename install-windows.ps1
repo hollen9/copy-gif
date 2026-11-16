@@ -45,6 +45,8 @@ if ($Browser -in @('All', 'Edge', 'Both')) { $registrations += 'Software\Microso
 # Edge: some existing Edge profiles only discover this host via that location.
 if ($Browser -in @('All', 'Edge', 'Chrome', 'Chromium', 'Brave', 'Vivaldi', 'Opera', 'Both')) { $registrations += 'Software\Google\Chrome\NativeMessagingHosts\com.copygif.host' }
 if ($Browser -in @('All', 'Chromium')) { $registrations += 'Software\Chromium\NativeMessagingHosts\com.copygif.host' }
+if ($Browser -in @('All', 'Brave')) { $registrations += 'Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.copygif.host' }
+if ($Browser -in @('All', 'Vivaldi')) { $registrations += 'Software\Vivaldi\NativeMessagingHosts\com.copygif.host' }
 $backupPath = Join-Path $InstallDirectory 'previous-registration.json'
 $backups = @()
 if (Test-Path -LiteralPath $backupPath) {
