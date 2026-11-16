@@ -71,6 +71,17 @@ jobs:
           python tests/test_unix_host.py release/test/copy-gif-host
       - name: Installer
         run: python tests/test_unix_install.py 'release/copy-gif-${{ matrix.rid }}.tar.gz'
+      - name: Debian 12 installation
+        if: matrix.rid == 'linux-x64'
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" debian:bookworm-slim bash -euc '
+            apt-get update
+            apt-get install -y sudo python3 python3-pil xvfb xauth
+            useradd --create-home --shell /bin/bash tester
+            echo "tester ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/tester
+            su - tester -c "bash /repo/install.sh --package /repo/release/copy-gif-linux-x64.tar.gz --install-dir /home/tester/copy-gif --browser all"
+            su - tester -c "xvfb-run -a python3 /repo/tests/test_unix_host.py /home/tester/copy-gif/copy-gif-host"
+          '
       - name: Framework-dependent package
         run: |
           mkdir -p release/framework

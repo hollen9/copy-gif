@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 internal static class MacClipboard
 {
     private const string ObjC = "/usr/lib/libobjc.A.dylib";
-    private static readonly nint AppKit = NativeLibrary.Load("/System/Library/Frameworks/AppKit.framework/AppKit");
+    static MacClipboard() => NativeLibrary.Load("/System/Library/Frameworks/AppKit.framework/AppKit");
     private static nint Sel(string name) => sel_registerName(name);
     private static nint Text(string value)
     {
