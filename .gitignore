@@ -53,6 +53,13 @@ web-store-package.zip
 # Rust
 /native-host/target/
 /native-host/Cargo.lock
+**/bin/
+**/obj/
+/native-host/windows/publish/
+/windows-package/
+/tests/__pycache__/
+/tests/edge-probe/
+/tests/edge-probe-profile/
 *.rs.bk
 
 # Installers

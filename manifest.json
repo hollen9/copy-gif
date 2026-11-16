@@ -1,12 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Copy GIF",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Copy animated GIFs to clipboard with a right-click context menu option",
   "permissions": [
     "contextMenus",
-    "clipboardWrite",
-    "activeTab",
     "nativeMessaging"
   ],
   "host_permissions": [
@@ -17,9 +15,15 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true
     }
   ],
   "icons": {
@@ -34,5 +38,6 @@
       "128": "icons/icon128.png"
     },
     "default_title": "Copy GIF"
-  }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApRKCYr1aqrb+iFkt1RGL2NoGV5MxI/s/pu7oSbfD03QldkA/IsaEGXOW3HBuW9kjfm0Q82uS0b+3U+JjB7eQfVTK+SIhk+fUR95cBk7l0OSbRKpy2AdF76Xno369elCq2Lrmh1Qfe4xCkuyKoQrMSWeAyiPJ/GFOYu2eb1Y20Sgrxtbs+Vuog/Hg0V1oMq9jURFncT538+L2whfCfiuMKTNGYSawVuBPSFNoMyLL7R6ficzNgHBV59OoP7AFjIFOg3bHqim/ewigRdqrrm7/INVZX7TQE2nR05M1+4lPM8QULqQKbEQ33KwROJniYZqESIH89jcBvUHcYRVvc2e8lQIDAQAB"
 }
