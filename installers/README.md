@@ -19,6 +19,15 @@ Install a downloaded archive with:
 bash install.sh --package /path/to/copy-gif-osx-arm64.tar.gz
 ~~~
 
-The Build and test workflow builds and tests both architectures on macOS and
-Ubuntu and produces a Windows x64 package. Downloads are published under
-[Releases](https://github.com/hollen9/copy-gif/releases).
+CI builds Windows and Linux packages. GitHub macOS jobs are available through
+the manual `build_macos` workflow option.
+
+Build the extension-only ZIP and tar.gz with Python 3:
+
+~~~bash
+python installers/package-extension.py release
+~~~
+
+Include both extension archives, `install-extension.ps1`, and
+`install-extension.sh` in each release, with their hashes in `SHA256SUMS`.
+Downloads are published under [Releases](https://github.com/hollen9/copy-gif/releases).
