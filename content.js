@@ -1,6 +1,13 @@
 // Remember the real context target. contextMenus.OnClickData has no pageX/pageY.
 let contextTarget = null;
-document.addEventListener('contextmenu', (event) => { contextTarget = event.composedPath()[0]; }, true);
+let convertingVideo = false;
+const isTwitter = /^(?:www\.|mobile\.)?(?:x\.com|twitter\.com)$/i.test(location.hostname);
+
+document.addEventListener('contextmenu', (event) => {
+  contextTarget = event.composedPath()[0];
+  // Keep the browser menu instead of X's "Copy video address" menu.
+  if (findTwitterGif(contextTarget)) event.stopImmediatePropagation();
+}, true);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getGifCandidate') {
@@ -27,6 +34,8 @@ function findGif(element) {
 }
 
 async function getCandidate(directUrl) {
+  const twitterVideo = findTwitterGif(contextTarget);
+  if (twitterVideo) return convertTwitterGif(twitterVideo);
   const url = (looksLikeGif(directUrl) && directUrl) || findGif(contextTarget) ||
     findGif(contextTarget?.parentElement) || directUrl;
   if (!url) throw new Error('No GIF found. Right-click the original GIF image.');
@@ -46,7 +55,75 @@ async function getCandidate(directUrl) {
   return { url };
 }
 
-function showNotification(message, success) {
+function findTwitterGif(target) {
+  if (!isTwitter || !(target instanceof Element)) return null;
+  const player = target.closest('[data-testid="videoComponent"], [data-testid="videoPlayer"]');
+  const video = target.matches('video') ? target : player?.querySelector('video');
+  return CopyGifVideo.twitterUrl(video) ? video : null;
+}
+
+async function convertTwitterGif(video) {
+  if (convertingVideo) throw new Error('A GIF is already being converted.');
+  convertingVideo = true;
+  try {
+    showNotification('Converting GIF…', true, 0);
+    let lastProgress = -1;
+    const data = await CopyGifVideo.convert(CopyGifVideo.twitterUrl(video), percent => {
+      const step = Math.floor(percent / 10) * 10;
+      if (step !== lastProgress) {
+        lastProgress = step;
+        showNotification('Converting GIF… ' + step + '%', true, 0);
+        // Progress messages also keep the service worker alive during conversion.
+        void chrome.runtime.sendMessage({ action: 'copyGifProgress', percent: step }).catch(() => {});
+      }
+    });
+    return { data };
+  } finally { convertingVideo = false; }
+}
+
+function addTwitterButtons() {
+  // X reuses player containers while scrolling; discard stale buttons first.
+  for (const button of document.querySelectorAll('[data-copy-gif-button]')) {
+    const video = button.parentElement.querySelector('video');
+    if (!CopyGifVideo.twitterUrl(video)) button.remove();
+  }
+  for (const video of document.querySelectorAll('video')) {
+    if (!CopyGifVideo.twitterUrl(video)) continue;
+    const player = video.closest('[data-testid="videoComponent"], [data-testid="videoPlayer"]');
+    if (!player || player.querySelector('[data-copy-gif-button]')) continue;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Copy GIF';
+    button.dataset.copyGifButton = '';
+    button.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;padding:7px 11px;border:1px solid #ffffff80;border-radius:6px;background:#171717e6;color:#fff;font:600 13px/1.4 system-ui,sans-serif;cursor:pointer';
+    button.addEventListener('click', async event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.isTrusted || button.disabled) return;
+      button.disabled = true;
+      button.textContent = 'Converting…';
+      try {
+        const candidate = await convertTwitterGif(player.querySelector('video'));
+        button.textContent = 'Copying…';
+        await chrome.runtime.sendMessage({ action: 'copyGifData', data: candidate.data });
+      } catch (error) { showNotification(error.message, false); }
+      finally { button.disabled = false; button.textContent = 'Copy GIF'; }
+    });
+    player.appendChild(button);
+  }
+}
+
+if (isTwitter) {
+  let scheduled = false;
+  new MutationObserver(() => {
+    if (scheduled) return;
+    scheduled = true;
+    setTimeout(() => { scheduled = false; addTwitterButtons(); }, 100);
+  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+  addTwitterButtons();
+}
+
+function showNotification(message, success, duration = success ? 4500 : 12000) {
   document.getElementById('copy-gif-notice')?.remove();
   const notice = document.createElement('div');
   notice.id = 'copy-gif-notice';
@@ -56,5 +133,5 @@ function showNotification(message, success) {
     (success ? '#247246' : '#bc3434') +
     ';color:white;border-radius:6px;z-index:2147483647;font:14px/1.6 system-ui,sans-serif;max-width:420px;white-space:pre-wrap;pointer-events:none;box-shadow:0 2px 12px #0003';
   (document.body || document.documentElement).appendChild(notice);
-  setTimeout(() => notice.remove(), success ? 4500 : 12000);
+  if (duration) setTimeout(() => notice.remove(), duration);
 }

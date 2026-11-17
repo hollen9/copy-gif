@@ -28,7 +28,9 @@ with tempfile.TemporaryDirectory(prefix="copy-gif-install-") as temporary:
     subprocess.run(command,env=environment,check=True)
     assert json.loads((install/"registration-backup.json").read_text())==entries
     version=subprocess.check_output([str(install/"copy-gif-host"),"--version"],env=dict(environment,PATH="/usr/bin:/bin"))
-    assert b"1.2.0" in version
+    assert b"1.3.0" in version
+    for name in ('gif-video.js', 'vendor/gifenc.js', 'vendor/gifenc.LICENSE.txt'):
+        assert (install/'Extension'/name).is_file(), name
     # A registration replaced by another application must not be removed.
     changed=next(Path(entry["Path"]) for entry in entries if Path(entry["Path"])!=chrome)
     changed.write_text('{"path":"/another/application"}')

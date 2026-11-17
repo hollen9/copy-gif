@@ -5,11 +5,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 function background(options = {}) {
-  const calls = { messages: [], sent: [], badges: [], timers: new Set() };
-  let menuListener, actionListener, installedListener;
+  const calls = { messages: [], sent: [], badges: [], menus: [], timers: new Set() };
+  let menuListener, actionListener, installedListener, messageListener;
   const chrome = {
     runtime: {
       onInstalled: { addListener: cb => installedListener = cb },
+      onMessage: { addListener: cb => messageListener = cb },
       connectNative: () => {
         const listeners = {};
         const port = {
@@ -27,7 +28,7 @@ function background(options = {}) {
         return port;
       }
     },
-    contextMenus: { removeAll: cb => cb(), create: value => calls.menu = value, onClicked: { addListener: cb => menuListener = cb } },
+    contextMenus: { removeAll: cb => cb(), create: value => calls.menus.push(value), onClicked: { addListener: cb => menuListener = cb } },
     tabs: { sendMessage: async (tab, message, frame) => {
       calls.sent.push({ tab, message, frame });
       if (message.action === 'getGifCandidate') {
@@ -51,12 +52,15 @@ function background(options = {}) {
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../background.js'), 'utf8'), context);
   return { calls, context, menu: () => installedListener(), click: info => vm.runInContext(
-    'copyFromContext(' + JSON.stringify(info) + ', 123)', context), action: () => actionListener({ id: 123 }) };
+    'copyFromContext(' + JSON.stringify(info) + ', 123)', context), action: () => actionListener({ id: 123 }),
+    message: (message, sender) => new Promise(resolve => messageListener(message, sender, resolve)) };
 }
 
 test('menu is recreated and includes image/link/video', () => {
   const app = background(); app.menu();
-  assert.deepEqual(Array.from(app.calls.menu.contexts), ['image', 'link', 'video']);
+  assert.deepEqual(Array.from(app.calls.menus[0].contexts), ['image', 'link', 'video']);
+  assert.deepEqual(Array.from(app.calls.menus[1].contexts), ['page']);
+  assert.deepEqual(Array.from(app.calls.menus[1].documentUrlPatterns), ['*://*.x.com/*', '*://*.twitter.com/*']);
 });
 test('extensionless URL goes straight to host with correct frame', async () => {
   const app = background();
@@ -111,4 +115,72 @@ test('browser fallback sends valid GIF bytes to native host', async () => {
   await app.click({});
   assert.equal(app.calls.messages.length, 2);
   assert.equal(Buffer.from(app.calls.messages[1].data, 'base64').toString(), 'GIF89aTEST');
+});
+
+test('Twitter button copies converted bytes and reports to its source frame', async () => {
+  const app = background();
+  const result = await app.message({ action: 'copyGifData', data: 'R0lGODlh' }, { tab: { id: 456 }, frameId: 9 });
+  assert.equal(result.success, true);
+  assert.equal(app.calls.messages[0].data, 'R0lGODlh');
+  assert.equal(app.calls.sent.at(-1).tab, 456);
+  assert.equal(app.calls.sent.at(-1).frame.frameId, 9);
+  assert.equal(app.calls.badges.at(-1).text, 'OK');
+});
+
+test('failed button copy returns the backend error', async () => {
+  const app = background({ response: { success: false, error: 'Clipboard busy' } });
+  const result = await app.message({ action: 'copyGifData', data: 'R0lGODlh' }, { tab: { id: 123 } });
+  assert.equal(result.success, false);
+  assert.equal(result.error, 'Clipboard busy');
+  assert.equal(app.calls.badges.at(-1).text, 'ERR');
+});
+
+test('oversized converted payload never reaches the host', async () => {
+  const app = background();
+  const result = await app.message({ action: 'copyGifData', data: 'A'.repeat(35 * 1024 * 1024) }, { tab: { id: 123 } });
+  assert.equal(result.success, false);
+  assert.equal(app.calls.messages.length, 0);
+});
+
+test('conversion progress updates the badge without touching the clipboard', async () => {
+  const app = background();
+  await app.message({ action: 'copyGifProgress', percent: 50 }, { tab: { id: 123 } });
+  assert.equal(app.calls.badges.at(-1).text, '50%');
+  assert.equal(app.calls.messages.length, 0);
+});
+
+const videoContext = vm.createContext({ URL });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../gif-video.js'), 'utf8'), videoContext);
+test('only X GIF MP4 sources are eligible for conversion', () => {
+  const check = url => vm.runInContext('CopyGifVideo.twitterUrl({src:' + JSON.stringify(url) + '})', videoContext);
+  assert.equal(check('https://video.twimg.com/tweet_video/HWtlBQLXYAA7vhn.mp4'), 'https://video.twimg.com/tweet_video/HWtlBQLXYAA7vhn.mp4');
+  for (const url of ['https://video.twimg.com/amplify_video/1/movie.mp4', 'blob:https://x.com/123',
+    'https://video.twimg.com.evil.example/tweet_video/test.mp4', 'http://video.twimg.com/tweet_video/test.mp4',
+    'https://x.com/name/status/123', 'not a URL']) assert.equal(check(url), null, url);
+});
+
+function converter(fetch) {
+  const context = vm.createContext({ URL, fetch, AbortSignal });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../gif-video.js'), 'utf8'), context);
+  return () => vm.runInContext("CopyGifVideo.convert('https://video.twimg.com/tweet_video/test.mp4')", context);
+}
+
+test('video download reports HTTP errors before decoding', async () => {
+  const convert = converter(async () => new Response('', { status: 403 }));
+  await assert.rejects(convert(), /HTTP 403/);
+});
+
+test('oversized video content length is rejected before reading the body', async () => {
+  const convert = converter(async () => new Response('', { headers: { 'content-length': String(26 * 1024 * 1024) } }));
+  await assert.rejects(convert(), /exceeds 25 MiB/);
+});
+
+test('video download is bounded even without content length', async () => {
+  let cancelled = false;
+  const convert = converter(async () => ({ ok: true, headers: new Headers(), body: { getReader: () => ({
+    read: async () => ({ done: false, value: new Uint8Array(26 * 1024 * 1024) }),
+    cancel: async () => { cancelled = true; }
+  }) } }));
+  await assert.rejects(convert(), /exceeds 25 MiB/);
+  assert.equal(cancelled, true);
 });

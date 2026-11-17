@@ -45,7 +45,10 @@ See the platform guides for manual runtime installation.
 Right-click a GIF, select **Copy GIF (preserve animation)**, then paste with
 **Ctrl+V** (**Cmd+V** on macOS).
 
-Supports GIF files up to 25 MiB. For WebP or MP4 previews, open the original GIF first.
+On X / Twitter, click **Copy GIF** in the GIF player, or use the right-click menu.
+X's MP4-based GIFs are converted locally, up to 30 seconds, 480 pixels, and 20 fps.
+
+Supports GIF files up to 25 MiB. Other video and WebP previews are not converted.
 
 ## Development
 
@@ -76,6 +79,7 @@ Clipboard tests replace the current clipboard with a test GIF.
 ## Credits
 
 Fork of [picasocro1/copy-gif](https://github.com/picasocro1/copy-gif).
+GIF encoding uses [gifenc](https://github.com/mattdesl/gifenc) (MIT).
 
 ## License
 

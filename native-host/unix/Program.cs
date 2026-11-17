@@ -41,7 +41,7 @@ internal static class Program
                         ?? throw new InvalidDataException("Request is empty.");
                     response = request.Action switch
                     {
-                        "ping" => new { success = true, version = "1.2.0", platform = OperatingSystem.IsMacOS() ? "macos-dotnet" : "linux-dotnet" },
+                        "ping" => new { success = true, version = "1.3.0", platform = OperatingSystem.IsMacOS() ? "macos-dotnet" : "linux-dotnet" },
                         "copyGif" => CopyGif(request),
                         _ => throw new InvalidDataException("Unsupported action.")
                     };

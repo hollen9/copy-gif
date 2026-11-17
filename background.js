@@ -4,11 +4,25 @@ const MAX_BYTES = 25 * 1024 * 1024;
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({ id: 'copy-gif', title: 'Copy GIF (preserve animation)', contexts: ['image', 'link', 'video'] });
+    chrome.contextMenus.create({ id: 'copy-twitter-gif', title: 'Copy GIF (preserve animation)', contexts: ['page'],
+      documentUrlPatterns: ['*://*.x.com/*', '*://*.twitter.com/*'] });
   });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'copy-gif' && tab?.id != null) void copyFromContext(info, tab.id);
+  if (['copy-gif', 'copy-twitter-gif'].includes(info.menuItemId) && tab?.id != null) void copyFromContext(info, tab.id);
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'copyGifProgress' && sender.tab?.id != null &&
+      Number.isInteger(message.percent) && message.percent >= 0 && message.percent <= 100) {
+    void chrome.action.setBadgeText({ tabId: sender.tab.id, text: message.percent + '%' });
+    sendResponse({ success: true });
+    return;
+  }
+  if (message.action !== 'copyGifData' || sender.tab?.id == null) return;
+  copyCandidate({ data: message.data }, sender.tab.id, sender.frameId ?? 0).then(sendResponse);
+  return true;
 });
 
 async function nativeMessage(message) {
@@ -37,8 +51,7 @@ async function nativeMessage(message) {
 
 async function copyFromContext(info, tabId) {
   const frameId = info.frameId ?? 0;
-  await chrome.action.setBadgeText({ tabId, text: '…' });
-  try {
+  return copyCandidate(async () => {
     let candidate;
     try {
       candidate = await chrome.tabs.sendMessage(tabId, {
@@ -46,8 +59,19 @@ async function copyFromContext(info, tabId) {
       }, { frameId });
     } catch { /* Already-open or browser image pages may have no content script. */ }
     if (candidate?.error) throw new Error(candidate.error);
-    const url = candidate?.url || info.srcUrl || info.linkUrl;
-    if (!url) throw new Error('No GIF found. Right-click the original GIF image.');
+    return { ...candidate, url: candidate?.url || info.srcUrl || info.linkUrl };
+  }, tabId, frameId);
+}
+
+async function copyCandidate(source, tabId, frameId) {
+  await chrome.action.setBadgeText({ tabId, text: '…' });
+  try {
+    const candidate = typeof source === 'function' ? await source() : source;
+    const url = candidate?.url;
+    if (!url && !candidate?.data) throw new Error('No GIF found. Right-click the original GIF image.');
+    if (candidate?.data && (typeof candidate.data !== 'string' || candidate.data.length > Math.ceil(MAX_BYTES / 3) * 4)) {
+      throw new Error('GIF exceeds 25 MiB.');
+    }
     let result;
     if (candidate?.data) {
       result = await nativeMessage({ action: 'copyGif', data: candidate.data });
@@ -64,7 +88,11 @@ async function copyFromContext(info, tabId) {
     }
     if (!result.success) throw new Error(result.error || 'Failed to copy GIF.');
     await report(tabId, frameId, true, 'GIF copied. Press Ctrl+V to paste into Discord or LINE.');
-  } catch (error) { await report(tabId, frameId, false, error.message); }
+    return { success: true };
+  } catch (error) {
+    await report(tabId, frameId, false, error.message);
+    return { success: false, error: error.message };
+  }
 }
 
 async function fetchGif(url) {

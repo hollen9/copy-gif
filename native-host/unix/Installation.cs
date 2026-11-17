@@ -8,7 +8,7 @@ internal static class Installation
     {
         try
         {
-            if (args[0] == "--version") { Console.WriteLine("Copy GIF 1.2.0 (.NET 10)"); return 0; }
+            if (args[0] == "--version") { Console.WriteLine("Copy GIF 1.3.0 (.NET 10)"); return 0; }
             if (args.Length < 2 || args[0] is not ("--register" or "--unregister"))
                 throw new ArgumentException("Usage: copy-gif-host --register INSTALL_DIR [all|chrome,edge,brave,chromium,vivaldi,opera]");
             string root = Path.GetFullPath(args[1]);

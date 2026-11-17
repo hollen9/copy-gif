@@ -17,7 +17,8 @@ if [ "$FRAMEWORK" = true ]; then
 fi
 dotnet publish "$ROOT/native-host/unix/CopyGif.Host.csproj" -c Release -r "$RID" "${FLAGS[@]}" -o "$WORK/host"
 mkdir -p "$WORK/Extension/icons"
-for FILE in manifest.json background.js content.js diagnostics.html diagnostics.js; do cp "$ROOT/$FILE" "$WORK/Extension/"; done
+for FILE in manifest.json background.js content.js gif-video.js diagnostics.html diagnostics.js; do cp "$ROOT/$FILE" "$WORK/Extension/"; done
+cp -R "$ROOT/vendor" "$WORK/Extension/"
 cp "$ROOT/icons/"*.png "$WORK/Extension/icons/"
 cp "$ROOT/installers/unix/copy-gif-host" "$ROOT/installers/unix/uninstall.sh" "$ROOT/install.sh" "$WORK/"
 cp "$ROOT/README.md" "$WORK/README.md"
