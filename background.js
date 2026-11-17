@@ -6,24 +6,12 @@ chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({ id: 'copy-gif', title: 'Copy GIF (preserve animation)', contexts: ['image', 'link', 'video'] });
     chrome.contextMenus.create({ id: 'copy-twitter-gif', title: 'Copy GIF (preserve animation)', contexts: ['page'],
       documentUrlPatterns: ['*://*.x.com/*', '*://*.twitter.com/*'] });
-    chrome.contextMenus.create({ id: 'copy-gif-address', title: 'Copy GIF address', contexts: ['page', 'image', 'link', 'video'],
-      documentUrlPatterns: ['*://*.x.com/*', '*://*.twitter.com/*'] });
   });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (['copy-gif', 'copy-twitter-gif'].includes(info.menuItemId) && tab?.id != null) void copyFromContext(info, tab.id);
-  if (info.menuItemId === 'copy-gif-address' && tab?.id != null) void copyAddress(info, tab.id);
 });
-
-async function copyAddress(info, tabId) {
-  const frameId = info.frameId ?? 0;
-  try {
-    const response = await chrome.tabs.sendMessage(tabId, { action: 'copyGifAddress' }, { frameId });
-    if (!response?.success) throw new Error(response?.error || 'Unable to copy GIF address. Refresh the page and try again.');
-    await report(tabId, frameId, true, 'GIF address copied.');
-  } catch (error) { await report(tabId, frameId, false, error.message); }
-}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'copyGifProgress' && sender.tab?.id != null &&

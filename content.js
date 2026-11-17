@@ -13,11 +13,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.action === 'copyGifResult') showNotification(message.message, message.success);
-  if (message.action === 'copyGifAddress') {
-    copyTwitterAddress().then(url => sendResponse({ success: true, url }))
-      .catch(error => sendResponse({ error: error.message }));
-    return true;
-  }
 });
 
 function looksLikeGif(url) { return /\.gif(?:[?#]|$)/i.test(url || '') || /^data:image\/gif[;,]/i.test(url || ''); }
@@ -69,22 +64,6 @@ function findTwitterGif(target) {
 function getContextTarget() {
   return isTwitter && typeof CopyGifTwitterContext !== 'undefined'
     ? CopyGifTwitterContext.target : contextTarget;
-}
-
-async function copyTwitterAddress() {
-  const video = findTwitterGif(getContextTarget());
-  if (!video) throw new Error('Right-click an X GIF to copy its address.');
-  const article = video.closest('article');
-  const link = article?.querySelector('time')?.closest('a') ||
-    article?.querySelector('a[href*="/status/"]');
-  const url = new URL(link?.href || location.href);
-  const post = url.pathname.match(/^\/[^/]+\/status\/\d+/);
-  if (!/^(?:www\.|mobile\.)?(?:x\.com|twitter\.com)$/i.test(url.hostname) || !post) {
-    throw new Error('Unable to find this GIF\'s post address.');
-  }
-  const address = url.origin + post[0];
-  await navigator.clipboard.writeText(address);
-  return address;
 }
 
 async function convertTwitterGif(video) {

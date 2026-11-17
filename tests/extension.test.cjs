@@ -35,7 +35,6 @@ function background(options = {}) {
         if (options.noContent) throw new Error('no content script');
         return options.candidate || { url: 'https://cdn.example/animation?id=1' };
       }
-      if (message.action === 'copyGifAddress') return options.addressResponse || { success: true };
     }},
     action: {
       setBadgeText: async value => calls.badges.push(value),
@@ -54,8 +53,7 @@ function background(options = {}) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../background.js'), 'utf8'), context);
   return { calls, context, menu: () => installedListener(), click: info => vm.runInContext(
     'copyFromContext(' + JSON.stringify(info) + ', 123)', context), action: () => actionListener({ id: 123 }),
-    message: (message, sender) => new Promise(resolve => messageListener(message, sender, resolve)),
-    address: info => vm.runInContext('copyAddress(' + JSON.stringify(info) + ', 123)', context) };
+    message: (message, sender) => new Promise(resolve => messageListener(message, sender, resolve)) };
 }
 
 test('menu is recreated and includes image/link/video', () => {
@@ -63,8 +61,9 @@ test('menu is recreated and includes image/link/video', () => {
   assert.deepEqual(Array.from(app.calls.menus[0].contexts), ['image', 'link', 'video']);
   assert.deepEqual(Array.from(app.calls.menus[1].contexts), ['page']);
   assert.deepEqual(Array.from(app.calls.menus[1].documentUrlPatterns), ['*://*.x.com/*', '*://*.twitter.com/*']);
-  assert.equal(app.calls.menus[2].id, 'copy-gif-address');
-  assert.equal(app.calls.menus[2].title, 'Copy GIF address');
+  assert.equal(app.calls.menus.length, 2);
+  assert.equal(app.calls.menus[0].documentUrlPatterns, undefined);
+  assert.ok(app.calls.menus[0].contexts.every(context => !app.calls.menus[1].contexts.includes(context)));
 });
 test('extensionless URL goes straight to host with correct frame', async () => {
   const app = background();
@@ -189,40 +188,24 @@ test('video download is bounded even without content length', async () => {
   assert.equal(cancelled, true);
 });
 
-test('copy address routes to the clicked frame without sending GIF bytes', async () => {
-  const app = background();
-  await app.address({ frameId: 7 });
-  assert.equal(app.calls.sent[0].message.action, 'copyGifAddress');
-  assert.equal(app.calls.sent[0].frame.frameId, 7);
-  assert.equal(app.calls.messages.length, 0);
-  assert.equal(app.calls.badges.at(-1).text, 'OK');
-});
-
 function twitterPage(src = 'https://video.twimg.com/tweet_video/example.mp4') {
   class Element {
     matches(selector) { return selector === 'video' && this === video; }
     closest(selector) {
-      if (selector === 'article') return article;
-      if (selector === 'a') return link;
       return this === outside ? null : player;
     }
     querySelector(selector) {
       if (selector === 'video') return video;
-      if (selector === 'time') return time;
       return null;
     }
   }
   const window = new EventTarget();
   const video = Object.assign(new Element(), { src });
   const player = new Element(), overlay = new Element(), outside = new Element();
-  const article = new Element(), time = new Element();
-  const link = Object.assign(new Element(), { href: 'https://x.com/author/status/123456?ref=example' });
-  const copied = [];
   let listener;
   const context = vm.createContext({
     window, Element, URL,
     location: { hostname: 'x.com', href: 'https://x.com/home' },
-    navigator: { clipboard: { writeText: async value => copied.push(value) } },
     document: { addEventListener() {}, querySelectorAll: () => [], documentElement: {} },
     MutationObserver: class { observe() {} },
     chrome: { runtime: { onMessage: { addListener: cb => listener = cb } } }
@@ -231,7 +214,7 @@ function twitterPage(src = 'https://video.twimg.com/tweet_video/example.mp4') {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context);
   }
   return {
-    window, overlay, outside, copied, context,
+    window, overlay, outside, context,
     event(type = 'contextmenu', target = overlay, button = 2) {
       const event = new Event(type, { cancelable: true });
       Object.defineProperty(event, 'button', { value: button });
@@ -275,14 +258,6 @@ test('regular video and page context menus keep their original handlers', () => 
   }
 });
 
-test('copy GIF address preserves the post link, independently of animation conversion', async () => {
-  const page = twitterPage();
-  page.event();
-  const response = await page.message({ action: 'copyGifAddress' });
-  assert.equal(response.success, true);
-  assert.deepEqual(page.copied, ['https://x.com/author/status/123456']);
-});
-
 test('animation copying uses the target captured before document handlers run', async () => {
   const page = twitterPage();
   vm.runInContext("showNotification = () => {}; CopyGifVideo.convert = async () => 'R0lGODlh';", page.context);
@@ -297,5 +272,9 @@ test('the context hook runs at document start only on X and Twitter', () => {
   const hook = manifest.content_scripts.find(script => script.js.includes('twitter-context.js'));
   assert.equal(hook.run_at, 'document_start');
   assert.deepEqual(hook.matches, ['*://*.x.com/*', '*://*.twitter.com/*']);
-  assert.ok(manifest.permissions.includes('clipboardWrite'));
+  assert.deepEqual(manifest.permissions, ['contextMenus', 'nativeMessaging']);
+  for (const script of manifest.content_scripts) {
+    if (script.matches.includes('<all_urls>')) assert.deepEqual(script.js, ['content.js']);
+    else assert.deepEqual(script.matches, ['*://*.x.com/*', '*://*.twitter.com/*']);
+  }
 });

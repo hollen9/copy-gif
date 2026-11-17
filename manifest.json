@@ -5,8 +5,7 @@
   "description": "Copy animated GIFs to clipboard with a right-click context menu option",
   "permissions": [
     "contextMenus",
-    "nativeMessaging",
-    "clipboardWrite"
+    "nativeMessaging"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -17,7 +16,7 @@
   "content_scripts": [
     {
       "matches": ["*://*.x.com/*", "*://*.twitter.com/*"],
-      "js": ["twitter-context.js"],
+      "js": ["twitter-context.js", "vendor/gifenc.js", "gif-video.js"],
       "run_at": "document_start",
       "all_frames": true
     },
@@ -26,8 +25,6 @@
         "<all_urls>"
       ],
       "js": [
-        "vendor/gifenc.js",
-        "gif-video.js",
         "content.js"
       ],
       "run_at": "document_idle",
