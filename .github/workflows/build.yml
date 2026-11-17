@@ -11,6 +11,30 @@ on:
 permissions:
   contents: read
 jobs:
+  extension:
+    strategy:
+      matrix:
+        include:
+          - runner: windows-2025
+            archive: zip
+          - runner: ubuntu-24.04
+            archive: tar.gz
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python installers/package-extension.py release/extension
+      - run: python tests/test_extension_install.py 'release/extension/copy-gif-extension.${{ matrix.archive }}'
+      - name: Windows PowerShell 5.1
+        if: runner.os == 'Windows'
+        run: python tests/test_extension_install.py release/extension/copy-gif-extension.zip --powershell powershell.exe
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: copy-gif-extension
+          path: release/extension/*
   unix:
     strategy:
       fail-fast: false

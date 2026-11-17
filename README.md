@@ -33,6 +33,25 @@ from the folder printed by the installer. Refresh existing pages.
 
 Setup: [Windows](WINDOWS.md) · [macOS](MACOS.md) · [Linux](LINUX.md)
 
+### Extension only
+
+With the native host already installed, update just the extension:
+
+~~~powershell
+Invoke-WebRequest https://raw.githubusercontent.com/hollen9/copy-gif/main/install-extension.ps1 -OutFile install-extension.ps1
+.\install-extension.ps1
+~~~
+
+~~~bash
+curl -fsSL https://raw.githubusercontent.com/hollen9/copy-gif/main/install-extension.sh -o install-extension.sh
+bash install-extension.sh
+~~~
+
+The scripts use the latest release. For a different folder, pass
+`-ExtensionDirectory PATH` (Windows) or `--extension-dir PATH` (macOS/Linux).
+Then reload Copy GIF in `chrome://extensions` and refresh open pages.
+For first-time setup including the native host, use the full installer above.
+
 ## Runtime
 
 Release packages include .NET 10; no separate runtime is needed.

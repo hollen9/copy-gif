@@ -98,7 +98,7 @@ elif [ -z "$PACKAGE" ]; then
     BASE="https://github.com/$REPOSITORY/releases/download/v$VERSION"
     curl -fL --retry 3 "$BASE/$ASSET" -o "$WORK/$ASSET"
     curl -fL --retry 3 "$BASE/SHA256SUMS" -o "$WORK/SHA256SUMS"
-    EXPECTED=$(awk -v name="$ASSET" '$2 == name { print $1 }' "$WORK/SHA256SUMS")
+    EXPECTED=$(awk -v name="$ASSET" '{ sub(/\r$/, "") } $2 == name { print $1 }' "$WORK/SHA256SUMS")
     [ -n "$EXPECTED" ] || { echo 'Missing package checksum.' >&2; exit 1; }
     if [ "$PLATFORM" = osx ]; then ACTUAL=$(shasum -a 256 "$WORK/$ASSET" | awk '{print $1}');
     else ACTUAL=$(sha256sum "$WORK/$ASSET" | awk '{print $1}'); fi
