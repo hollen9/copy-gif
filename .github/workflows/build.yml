@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      build_macos:
+        description: Build macOS packages on GitHub runners
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -10,15 +15,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: macos-26
-            rid: osx-arm64
-          - runner: macos-15-intel
-            rid: osx-x64
-          - runner: ubuntu-24.04
-            rid: linux-x64
-          - runner: ubuntu-24.04-arm
-            rid: linux-arm64
+        include: >-
+          ${{ fromJSON(inputs.build_macos &&
+          '[{"runner":"macos-26","rid":"osx-arm64"},{"runner":"macos-15-intel","rid":"osx-x64"},{"runner":"ubuntu-24.04","rid":"linux-x64"},{"runner":"ubuntu-24.04-arm","rid":"linux-arm64"}]' ||
+          '[{"runner":"ubuntu-24.04","rid":"linux-x64"},{"runner":"ubuntu-24.04-arm","rid":"linux-arm64"}]') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
