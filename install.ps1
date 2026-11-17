@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '1.3.0',
+    [string]$Version = '1.3.1',
     [string]$InstallDirectory = 'C:\Program Files (Portable)\Copy GIF',
     [ValidateSet('All', 'Edge', 'Chrome', 'Chromium', 'Brave', 'Vivaldi', 'Opera', 'Both')][string]$Browser = 'All'
 )

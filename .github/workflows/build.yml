@@ -126,7 +126,7 @@ jobs:
           $package = 'release\package'
           New-Item -ItemType Directory -Path $package -Force | Out-Null
           Copy-Item native-host/windows/publish/copy-gif-host.exe $package
-          Copy-Item manifest.json,background.js,content.js,gif-video.js,diagnostics.html,diagnostics.js,install-windows.ps1,uninstall-windows.ps1,WINDOWS.md,README.md $package
+          Copy-Item manifest.json,background.js,content.js,gif-video.js,twitter-context.js,diagnostics.html,diagnostics.js,install-windows.ps1,uninstall-windows.ps1,WINDOWS.md,README.md $package
           Copy-Item vendor $package -Recurse
           Copy-Item icons $package -Recurse
           Compress-Archive -Path "$package\*" -DestinationPath release/copy-gif-win-x64.zip

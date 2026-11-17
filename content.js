@@ -5,8 +5,6 @@ const isTwitter = /^(?:www\.|mobile\.)?(?:x\.com|twitter\.com)$/i.test(location.
 
 document.addEventListener('contextmenu', (event) => {
   contextTarget = event.composedPath()[0];
-  // Keep the browser menu instead of X's "Copy video address" menu.
-  if (findTwitterGif(contextTarget)) event.stopImmediatePropagation();
 }, true);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -15,6 +13,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.action === 'copyGifResult') showNotification(message.message, message.success);
+  if (message.action === 'copyGifAddress') {
+    copyTwitterAddress().then(url => sendResponse({ success: true, url }))
+      .catch(error => sendResponse({ error: error.message }));
+    return true;
+  }
 });
 
 function looksLikeGif(url) { return /\.gif(?:[?#]|$)/i.test(url || '') || /^data:image\/gif[;,]/i.test(url || ''); }
@@ -34,10 +37,11 @@ function findGif(element) {
 }
 
 async function getCandidate(directUrl) {
-  const twitterVideo = findTwitterGif(contextTarget);
+  const target = getContextTarget();
+  const twitterVideo = findTwitterGif(target);
   if (twitterVideo) return convertTwitterGif(twitterVideo);
-  const url = (looksLikeGif(directUrl) && directUrl) || findGif(contextTarget) ||
-    findGif(contextTarget?.parentElement) || directUrl;
+  const url = (looksLikeGif(directUrl) && directUrl) || findGif(target) ||
+    findGif(target?.parentElement) || directUrl;
   if (!url) throw new Error('No GIF found. Right-click the original GIF image.');
   if (/^(blob:|data:)/i.test(url)) {
     const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
@@ -60,6 +64,27 @@ function findTwitterGif(target) {
   const player = target.closest('[data-testid="videoComponent"], [data-testid="videoPlayer"]');
   const video = target.matches('video') ? target : player?.querySelector('video');
   return CopyGifVideo.twitterUrl(video) ? video : null;
+}
+
+function getContextTarget() {
+  return isTwitter && typeof CopyGifTwitterContext !== 'undefined'
+    ? CopyGifTwitterContext.target : contextTarget;
+}
+
+async function copyTwitterAddress() {
+  const video = findTwitterGif(getContextTarget());
+  if (!video) throw new Error('Right-click an X GIF to copy its address.');
+  const article = video.closest('article');
+  const link = article?.querySelector('time')?.closest('a') ||
+    article?.querySelector('a[href*="/status/"]');
+  const url = new URL(link?.href || location.href);
+  const post = url.pathname.match(/^\/[^/]+\/status\/\d+/);
+  if (!/^(?:www\.|mobile\.)?(?:x\.com|twitter\.com)$/i.test(url.hostname) || !post) {
+    throw new Error('Unable to find this GIF\'s post address.');
+  }
+  const address = url.origin + post[0];
+  await navigator.clipboard.writeText(address);
+  return address;
 }
 
 async function convertTwitterGif(video) {

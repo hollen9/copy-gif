@@ -46,6 +46,7 @@ Right-click a GIF, select **Copy GIF (preserve animation)**, then paste with
 **Ctrl+V** (**Cmd+V** on macOS).
 
 On X / Twitter, click **Copy GIF** in the GIF player, or use the right-click menu.
+Choose **Copy GIF address** to copy the post link instead.
 X's MP4-based GIFs are converted locally, up to 30 seconds, 480 pixels, and 20 fps.
 
 Supports GIF files up to 25 MiB. Other video and WebP previews are not converted.

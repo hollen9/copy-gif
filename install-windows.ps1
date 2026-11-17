@@ -18,7 +18,7 @@ $InstallDirectory = [IO.Path]::GetFullPath($InstallDirectory)
 $extensionDirectory = Join-Path $InstallDirectory 'Extension'
 New-Item -ItemType Directory -Path $extensionDirectory -Force | Out-Null
 Copy-Item -LiteralPath $executable -Destination (Join-Path $InstallDirectory 'copy-gif-host.exe') -Force
-foreach ($name in @('manifest.json', 'background.js', 'content.js', 'gif-video.js', 'diagnostics.html', 'diagnostics.js')) {
+foreach ($name in @('manifest.json', 'background.js', 'content.js', 'gif-video.js', 'twitter-context.js', 'diagnostics.html', 'diagnostics.js')) {
     Copy-Item -LiteralPath (Join-Path $sourceDirectory $name) -Destination $extensionDirectory -Force
 }
 New-Item -ItemType Directory -Path (Join-Path $extensionDirectory 'icons') -Force | Out-Null

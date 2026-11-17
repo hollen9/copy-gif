@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-VERSION=1.3.0
+VERSION=1.3.1
 REPOSITORY=hollen9/copy-gif
 BROWSERS=all
 INSTALL_DIR=
@@ -21,7 +21,7 @@ Usage: bash install.sh [options]
   --framework-dependent   Use the smaller package; requires .NET Runtime 10
   --install-runtime       Install a private .NET Runtime 10 if needed
   --skip-deps             Do not install Debian/Ubuntu system packages
-  --version VERSION       Release version (default: 1.3.0)
+  --version VERSION       Release version (default: 1.3.1)
 EOF
 }
 
